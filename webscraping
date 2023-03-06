@@ -1,0 +1,49 @@
+import requests
+from bs4 import BeautifulSoup
+import datetime
+import sqlite3
+
+# Define the URL of the page you want to scrape
+url = "https://bet.hkjc.com/football/odds/"
+
+# Define the headers to mimic a browser request
+headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3'}
+
+# Send a GET request to the URL with headers
+response = requests.get(url, headers=headers)
+
+# Parse the HTML content using BeautifulSoup
+soup = BeautifulSoup(response.content, 'html.parser')
+
+# Find the relevant HTML tags that contain the data you want to scrape
+matches = soup.find_all('div', {'class': 'mt-2'})
+
+# Define the current date for use in the output filename
+current_date = datetime.date.today().strftime('%Y-%m-%d')
+
+# Define the database connection and cursor
+conn = sqlite3.connect('odds_database.db')
+c = conn.cursor()
+
+# Create a table for the odds data if it doesn't exist
+c.execute('''CREATE TABLE IF NOT EXISTS odds_data
+             (match_name TEXT, match_date TEXT, home_team TEXT, away_team TEXT, odds_crs TEXT, scraped_date TEXT)''')
+
+# Loop through the matches and extract the relevant data
+for match in matches:
+    match_name = match.find('div', {'class': 'match-name'}).text.strip()
+    match_date = match.find('div', {'class': 'match-date'}).text.strip()
+    home_team = match.find('div', {'class': 'home-team'}).text.strip()
+    away_team = match.find('div', {'class': 'away-team'}).text.strip()
+    odds_crs = match.find('span', {'class': 'odds-crs'}).text.strip()
+
+    # Insert the data into the database
+    c.execute("INSERT INTO odds_data VALUES (?, ?, ?, ?, ?, ?)",
+              (match_name, match_date, home_team, away_team, odds_crs, current_date))
+
+# Commit the changes to the database and close the connection
+conn.commit()
+conn.close()
+
+print('Data scraping and writing to database completed successfully.')
